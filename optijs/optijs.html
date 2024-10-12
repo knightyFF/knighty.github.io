@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Two generators quasi fuchsian</title>
+		<style>
+			body { margin: 0; }
+			canvas_ { width: 50%; height: 50% }
+			#theCanvas_ {
+				position: relative;
+				top: 10px;
+				left:10px;
+				width: 512px;
+				height:512px;
+				border: none;
+			}
+			#theCanvas {
+				position: absolute;
+				top: 0px;
+				left:0px;
+				border: none;
+                z-index: 1;
+			}
+            #GlCanvas {
+				position: absolute;
+				top: 0px;
+				left:0px;
+				border: none;
+                z-index: 0;
+			}
+			#buttonOverlay {
+				position: fixed; /* Sit on top of the page content */
+				display: none; /* Hidden by default */
+				border: 0px solid #000000;
+				width: 200px; /*50%; /* Full width (cover the whole page) */
+				height: 400px; /*50%; /* Full height (cover the whole page) */
+				top: 0px;
+				left: 0px;
+				right: 0px;
+				bottom: 0px;
+				padding: 4px 4px;
+				background-color: rgba(230,230,230,0.75); /* Black background with opacity */
+				z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
+				cursor: default; /* Add a pointer on hover */
+			}
+            #infoOverlay {
+				position: fixed; /* Sit on top of the page content */
+				display: none; /* Hidden by default */
+				border: 0px solid #000000;
+				width: 80%; /*50%; /* Full width (cover the whole page) */
+				height: 50px; /*50%; /* Full height (cover the whole page) */
+				top: 0px;
+				left: 80px;
+				right: 0px;
+				bottom: 0px;
+				padding: 4px 4px;
+				background-color: rgba(230,230,230,0.75); /* Black background with opacity */
+				z-index: 2; /* Specify a stack order in case you're using a different order for other elements */
+				cursor: default; /* Add a pointer on hover */
+			}
+			button{
+				cursor: pointer;
+				border-radius: 0px;
+				width: 90%;
+				border: 0;
+				color: #000;
+				background-color: rgb(255, 255, 255);
+			}
+            button:hover{
+                font-size: 14px;
+                font-weight: bold;
+            }
+            /* Desn't perform well.
+			button:active { 
+                background-color: red; 
+            }
+			*/ 
+		</style>
+		<script>
+			//Heap class. After user719662 at : "https://stackoverflow.com/questions/42919469/efficient-way-to-implement-priority-queue-in-javascript"
+			//Awesome but I had to modify it a little bit to make it work because of the consts below. Is it suposed to be done this way ?
+			/*
+			const top = 0;
+			const parent = i => ((i + 1) >>> 1) - 1;
+			const left = i => (i << 1) + 1;
+			const right = i => (i + 1) << 1;
+			*/
+
+			class PriorityQueue {
+			  constructor(comparator = (a, b) => a > b) {
+				this._heap = [];
+				this._comparator = comparator;
+				
+				this.top = 0;
+				this.parent = i => ((i + 1) >>> 1) - 1;
+				this.left = i => (i << 1) + 1;
+				this.right = i => (i + 1) << 1;
+			  }
+			  size() {
+				return this._heap.length;
+			  }
+			  isEmpty() {
+				return this.size() == 0;
+			  }
+			  peek() {
+				return this._heap[this.top];
+			  }
+			  push(...values) {
+				values.forEach(value => {
+				  this._heap.push(value);
+				  this._siftUp();
+				});
+				return this.size();
+			  }
+			  pop() {
+				const poppedValue = this.peek();
+				const bottom = this.size() - 1;
+				if (bottom > this.top) {
+				  this._swap(this.top, bottom);
+				}
+				this._heap.pop();
+				this._siftDown();
+				return poppedValue;
+			  }
+			  replace(value) {
+				const replacedValue = this.peek();
+				this._heap[this.top] = value;
+				this._siftDown();
+				return replacedValue;
+			  }
+			  _greater(i, j) {
+				return this._comparator(this._heap[i], this._heap[j]);
+			  }
+			  _swap(i, j) {
+				[this._heap[i], this._heap[j]] = [this._heap[j], this._heap[i]];
+			  }
+			  _siftUp() {
+				let node = this.size() - 1;
+				while (node > this.top && this._greater(node, this.parent(node))) {
+				  this._swap(node, this.parent(node));
+				  node = this.parent(node);
+				}
+			  }
+			  _siftDown() {
+				let node = this.top;
+				while (
+				  (this.left(node) < this.size() && this._greater(this.left(node), node)) ||
+				  (this.right(node) < this.size() && this._greater(this.right(node), node))
+				) {
+				  let maxChild = (this.right(node) < this.size() && this._greater(this.right(node), this.left(node))) ? this.right(node) : this.left(node);
+				  this._swap(node, maxChild);
+				  node = maxChild;
+				}
+			  }
+			}
+		</script>
+		
+		<script>
+			//----------------------------------------
+			//Little complex numbers utility functions
+			function myComplex(r,i){
+				return 	{
+							re : r,
+							im : i
+						};
+			}
+			function norm(z){
+				//z = Complex(z).mul(I);
+				return z.re * z.re + z.im * z.im;
+			}
+			function abs(z){
+				//z = Complex(z).mul(I);
+				return Math.sqrt(z.re * z.re + z.im * z.im);
+			}
+			function conj(z){
+				return myComplex(z.re, -z.im);
+			}
+			function neg(z){
+				return myComplex(-z.re, -z.im);
+			}
+			function sqrt(z){
+				var r = Math.sqrt(Math.hypot(z.re,z.im));
+				var t = 0.5 * Math.atan2(z.im,z.re);
+				var x = r * Math.cos(t);
+				var y = r * Math.sin(t);
+				if( x < 0 ){
+					x = - x; y = - y;
+				}
+				return myComplex(x, y);
+			}
+			function normalize(z){
+				var ilength = 1./Math.hypot(z.re,z.im);
+				return myComplex(z.re * ilength, z.im * ilength);
+			}
+			function mul(x, y){
+				return myComplex(x.re * y.re - x.im * y.im,
+								 x.re * y.im + x.im * y.re);
+				//return math.complex(x).mul(y);
+			}
+			function div(x, y){
+				var z = mul(x, conj(y));
+				var iny = 1./norm(y);
+				return myComplex(z.re * iny, z.im * iny);
+				//return math.complex(x).div(y);
+			}
+			function add(x, y){
+				return myComplex(x.re + y.re, x.im + y.im);
+				//return math.complex(x).add(y);
+			}
+			function sub(x, y){
+				return myComplex(x.re - y.re, x.im - y.im);
+				//return math.complex(x).sub(y);
+			}
+			function copyCmplx(z){
+				return myComplex(z.re, z.im);
+			}
+		</script>
+		<script>
+			/*
+			--------------------------------------------------------------------------------------------------------------------------------
+				This part is an adaptation of the simplified OPTI algorithm written in python.
+				ref. :
+				Yasushi Yamashita, "CREATING SOFTWARE FOR VISUALIZING KLEINIAN GROUPS", in "Geometry, Topology and Dynamics of Character Varieties, pp. 159-190 (2012)"
+				https://researchmap.jp/yamasita/published_papers/3730470?lang=en
+			--------------------------------------------------------------------------------------------------------------------------------
+			*/
+			
+			function writeTriple(x){
+				//supposing x is an array of 3 myComplex elements
+				console.log(x[0].re+" + "+x[0].im+"i");
+				console.log(x[1].re+" + "+x[1].im+"i");
+				console.log(x[2].re+" + "+x[2].im+"i");
+			}
+			function copyTriple(x){
+				return [copyCmplx(x[0]), copyCmplx(x[1]), copyCmplx(x[2])];
+			}
+			//----------------------------------------
+			
+			//Here a Markove triple is a set of 3 complex numbers (x, y, z) such that x� + y� + z� = x * y * z
+			//For two generators quasi fuchsian kleinian groups x, y and z are related to the traces of the generators a, b and their product ab
+			
+			//Step 1 : given a Markov triple go towards a (the "median") triple such that the successive isometric
+			//         circles intersect or else, when the group appears to be indiscete
+
+            //----------------------------------------
+            //This function is used in step 1. 
+			//Input : a markov triple -> array of three complex numbers
+			//Output:
+			// -2 : the group is indiscrete.
+			// -1 : means stop.
+			// 0, 1, 2 : which triple move should we take.
+			function transition1(x){
+				if( norm(x[0]) < 1 || norm(x[1]) < 1 || norm(x[2]) < 1 )
+					return -2;
+				else if( norm(x[0]) > norm(sub(mul(x[1], x[2]), x[0])))
+					return 0;
+				else if( norm(x[1]) > norm(sub(mul(x[2], x[0]), x[1])))
+					return 1;
+				else if( norm(x[2]) > norm(sub(mul(x[0], x[1]), x[2])))
+					return 2;
+				else 
+					return -1;
+			}
+			//----------------------------------------
+			
+			//For step 2 and 3 : given a Markov triple go to next triple. Each triple is associated to generators of the group.
+			//Input :
+			//	x : the current triple  -> array of three complex numbers
+			//  direction: 1 means upward. -1 means downward
+			//Output:
+			// -3 : this particular algorithm can't continue for the input triple : We can't go forward so we say "undecided" :/
+			// -2 : the group is indiscrete.
+			// -1 : means stop.
+			// 0, 1, 2 : which triple move should we take.
+			function transition2(x, direction){
+				if( norm(x[0]) < 1 || norm(x[1]) < 1 || norm(x[2]) < 1 )
+					return -2;
+				if 	(div(mul(x[0], x[0]), mul(x[2], x[2])).im *
+					 div(mul(x[1], x[1]), mul(x[0], x[0])).im > 0 &&
+					 div(mul(x[1], x[1]), mul(x[0], x[0])).im *
+					 div(mul(x[2], x[2]), mul(x[1], x[1])).im > 0)
+					return -3;
+				var active = [ 	norm(x[0]) > norm(add(x[1] , mul(x[2], myComplex(0, direction)))),
+								norm(x[1]) > norm(add(x[2] , mul(x[0], myComplex(0, direction)))),
+								norm(x[2]) > norm(add(x[0] , mul(x[1], myComplex(0, direction)))) ];
+				for( var i = 0; i < 3; i++){
+					var j = (i+1) % 3, k  = (i+2) % 3;
+					if (active[i] && !active[j] && !active[k])
+						return i;
+					if( active[i] && active[j] && !active[k]){
+						var al = ( norm(x[k]) - norm(x[i]) + norm(x[j]) ) / 2;
+						var am = ( norm(x[j]) - norm(x[i]) + norm(x[k]) ) / 2;
+						var ar = ( norm(x[k]) - norm(x[j]) + norm(x[i]) ) / 2;
+						
+						var bl = div(mul(x[j], x[j]), mul(x[k], x[k]));
+						var br = div(mul(x[i], x[i]), mul(x[k], x[k]));
+						var cl = mul(normalize(bl), myComplex(-al,0));//-(bl/abs(bl))*al
+						var cr = add(myComplex(norm(x[k]),0), mul(normalize(br), myComplex(ar,0)));//norm(x[k]) + (br/abs(br))*ar;
+						
+						var dl = ( bl.re * (cl.re-am) + bl.im * cl.im ) / bl.im;
+						var dr = ( br.re * (cr.re-am) + br.im * cr.im ) / br.im;
+						
+						if (dl*direction < dr*direction)
+							return i;
+						else
+							return j;
+					}
+				}
+				return -1;
+			}
+			//----------------------------------------
+			// Get to next Markov triple.
+			// Input :
+			// 			in st : complex number, it is the center of the isometric circle for x[1] 
+			//			in x  : input Markov triple.
+			//			ac : gives the change to the triple that should be done
+			// Output:
+			//			shift : new center.
+			//			triple: new triple.
+			//			change= ac. Ok! it is the same as in the input to this function. It's here just to be stored in the array in getMTs and to remember what is the NEW element/isometric circle. Two successive triples differ essentially only by one element. 
+			/*function nextstx(inst, inx, ac){
+				var st, x, c;
+				if(ac == 0){
+					st = add(inst, div(inx[0], mul(inx[1], inx[2])));
+					x = [ sub(mul(inx[1],inx[2]), inx[0]), inx[2], inx[1] ];
+				} else if(ac == 1){
+					var y = [ inx[2], sub(mul(inx[2], inx[0]), inx[1]), inx[0] ];
+					st = add(add(inst, div(inx[0], mul(inx[1], inx[2]))), div(y[2], mul(y[0], y[1])));
+					x = y;
+				} else if(ac == 2){
+					st = sub(inst, div(inx[2], mul(inx[0], inx[1])));
+					x = [ inx[1], inx[0], sub(mul(inx[0], inx[1]), inx[2]) ];
+				}
+				return 	{
+							shift  : st,
+							triple : x,
+							change : ac
+						};
+			}*/
+            function nextstx(inst, inx, ac, incol){
+				var st, x, c, outcol;
+				if(ac == 0){
+					st = add(inst, div(inx[0], mul(inx[1], inx[2])));
+					x = [ sub(mul(inx[1],inx[2]), inx[0]), inx[2], inx[1] ];
+					outcol = [incol[0], incol[2],incol[1]];
+				} else if(ac == 1){
+					var y = [ inx[2], sub(mul(inx[2], inx[0]), inx[1]), inx[0] ];
+					st = add(add(inst, div(inx[0], mul(inx[1], inx[2]))), div(y[2], mul(y[0], y[1])));
+					x = y;
+					outcol = [incol[2], incol[1],incol[0]];
+				} else if(ac == 2){
+					st = sub(inst, div(inx[2], mul(inx[0], inx[1])));
+					x = [ inx[1], inx[0], sub(mul(inx[0], inx[1]), inx[2]) ];
+					outcol = [incol[1], incol[0],incol[2]];
+				}
+				return 	{
+							shift  : st,
+							triple : x,
+							change : ac,
+							col    : outcol
+						};
+			}
+			//----------------------------------------
+			//Generate the Ford domain for a two generators quasi fuchsian kleinian group given two complex numbers
+			//Input :
+			//        q1, q2: the 2 numbers
+			//Output :
+			//        dis : true if the group discrete. If not discrete, the outputs below are undefined or invalid.
+			//        x   : "median" Markov triple.
+			//        st  : shift of the "median" Markov triple. "median" is to say that it is the triple from which up and down triples grow.
+			//        up  : array of Markov triples and shifts in upward direction w.r.t. "median" Markov triple.
+			//        dn  : array of Markov triples and shifts in downward direction
+			//	      
+            //        The Ford (fundamental) domain's isometric circles are inferred from those Markov triples.
+			function getMTs(q1, q2){
+				var st = myComplex(0,0); //initial shift
+				var a  = [copyCmplx(q1), sub(q2, q1), sub(myComplex(1,0), q2)];//the three components sum to 1.
+				const One= myComplex(1,0);
+				const Imag= myComplex(0,1);
+			
+				//x is the initial Markov triple
+				var x  = [div(One, sqrt(mul(a[1],a[2]))), div(One, sqrt(mul(a[2],a[0]))), div(One, sqrt(mul(a[0],a[1])))];
+				var y  = [x[0], x[1], neg(x[2])];
+				var ax = [div(x[0], mul(x[1],x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1]))];
+				var ay = [div(y[0], mul(y[1],y[2])), div(y[1], mul(y[2], y[0])), div(y[2], mul(y[0], y[1]))];
+				if (norm(sub(ax[0],a[0])) + norm(sub(ax[1],a[1])) + norm(sub(ax[2],a[2])) >
+					norm(sub(ay[0],a[0])) + norm(sub(ay[1],a[1])) + norm(sub(ay[2],a[2])))
+					x = y;
+					
+				discrete = true;
+				var tmpx0 = copyTriple( x ); //save x
+                var col = [0, 1, 2];
+			
+				//first step: use transition1 to get the first "acceptable" triple
+				while (true){
+					var ac = transition1(x);
+					if (ac < -1)
+						discrete = false;
+					if (ac < 0)
+						break;
+					var stx = nextstx(st, x, ac, col);
+					st = stx.shift; x = stx.triple; col = stx.col;
+				}
+				if(!discrete) return {
+							dis: discrete,
+                            x  : tmpx0,
+							st : st,
+							col: col
+						};;
+			//writeTriple(x);
+				//recalculate x and st
+				a = [div(x[0], mul(x[1],x[2])), div(x[1], mul(x[2],x[0])), div(x[2], mul(x[0],x[1]))];
+			
+				if ((div(Imag, mul(x[0], a[1]))).im < 0)
+					x[0] = neg(x[0]);
+				if ((div(Imag, mul(x[1], a[2]))).im < 0)
+					x[1] = neg(x[1]);
+				if ((div(Imag, mul(x[2], a[0]))).im < 0)
+					x[2] = neg(x[2]);
+					
+				if ((div(mul(x[0], x[0]), mul(x[2], x[2]))).im *
+					(div(mul(x[1], x[1]), mul(x[0], x[0]))).im > 0 &&
+					(div(mul(x[1], x[1]), mul(x[0], x[0]))).im *
+					(div(mul(x[2], x[2]), mul(x[1], x[1]))).im > 0)
+					x = [x[0],x[1],neg(x[2])];
+				
+				//TODO: store initial x and st
+				var tmpx1 = copyTriple(x);
+				var tmpst = copyCmplx(st);
+                var tmpcol= [col[0], col[1], col[2]];
+				
+				//Second step: go upward and save successive triples...etc.
+				var upward = [];
+				while (true){
+					var ac = transition2(x, 1);
+					if (ac < -1)
+						discrete = false;
+					if (ac <  0)
+						break;
+					var stx = nextstx(st, x, ac, col);
+					st = stx.shift; x = stx.triple; col = stx.col;
+					upward.push(stx);
+				}
+				if(!discrete) return {
+							dis: discrete,
+							x : tmpx1,
+							st: tmpst,
+							col: tmpcol,//tmpcol?
+							up: upward
+						};
+				
+				//Second step: go downward and save successive triples...etc.
+				//we start again from the initial triple
+				x = copyTriple(tmpx1); st = copyCmplx(tmpst); col = [tmpcol[0], tmpcol[1], tmpcol[2]];//we start again from the initial triple
+				var downward = [];
+				while (true){
+					var ac = transition2(x, -1);
+					if (ac < -1)
+						discrete = false;
+					if (ac <  0)
+						break;
+					var stx = nextstx(st, x, ac, col);
+					st = stx.shift; x = stx.triple; col = stx.col;
+					downward.push(stx);
+				}
+				//if(!discrete) return;
+				return 	{
+							dis: discrete,
+							x : tmpx1,
+							st: tmpst,
+                            col: tmpcol,
+							up: upward,
+							dn: downward
+						}
+			}
+
+			//grab the isometric circles in one array
+			//input
+			//return object with flat arrays of 
+			//  - isometric circles' centers and radius --> [cx0,cy0,r0 ..., cxn,cyn,rn]  --> vec2[] in fragment shader.
+			//  - isometric circles' traces             --> [tr0,ti0, ..., trn,tin]       --> vec2[] in fragment shader.
+			//  - isometric circles' "colors"           --> [col0, ..., coln]             --> int[]  in fragment shader.  (not necessary per se.)
+            //  - upper limiting circles.               --> [br,bi,a,d].                  --> vec4[] 
+            //  - lower limiting circles.               --> [br,bi,a,d].                  --> vec4[]
+            //    Their union is used for "distance" estimation to the limit set.
+            //    They are represented as hermitian matrices [a, b; b*, d]. 
+			function getICs(Mts, Hint){
+				function correctX(cx,r){
+					//given cx and r compute smallest x such that x+r>0
+					var x = cx + r;
+					x -= Math.floor(x);
+					return x-r;
+				}
+                
+				function grab(stx){
+					var chg = stx.change;
+					var col = stx.col[chg];//--color index
+					var x   = stx.triple;
+					var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+					var trc = stx.triple[chg];//--trace (complex number)
+					var ctrs= [ add( stx.shift, add( a[0], a[1] ) ) , stx.shift , add( stx.shift, a[0] ) ];
+					var ctr = ctrs[chg];//--centre (complex number)
+					var r   = 1./abs(trc);
+					return [trc.re, trc.im, correctX(ctr.re, r), ctr.im, r, col];
+				}
+
+				if(Mts.dis === false)
+					return; //If not descrete return nothing
+
+				totn = Mts.up.length + Mts.dn.length + 3; //total number of ICs
+
+				//
+				var ICC=[], ICT=[], ICcol=[];
+				//begin with Mts.dn
+				for(i=0; i<Mts.dn.length; i++){
+					var res = grab(Mts.dn[i]);
+					ICT.push(res[0], res[1]);
+					ICC.push(res[2], res[3], res[4]);
+					ICcol.push(res[5]);
+				}
+				//Mts.up
+				for(i=0; i<Mts.up.length; i++){
+					var res = grab(Mts.up[i]);
+					ICT.push(res[0], res[1]);
+					ICC.push(res[2], res[3], res[4]);
+					ICcol.push(res[5]);
+				}
+				//middle
+				{
+					var st = Mts.st;
+					var x  = Mts.x;
+					var col= Mts.col;
+					st.re -= Math.floor(st.re);
+					var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+					var cen0 = add( st, add( a[0], a[1] ) ); 
+					var rad0 = 1. / abs(x[0]);
+					var cen1 = st;
+					var rad1 = 1. / abs(x[1]);
+					var cen2 = add( st, a[0] );
+					var rad2 = 1. / abs(x[2]);
+					cen0.re = correctX(cen0.re, rad0); cen1.re = correctX(cen1.re, rad1); cen2.re = correctX(cen2.re, rad2);
+					//for(i=0; i<3; i++) //That's strange : x[i] undefined inside the loop !
+						ICT.push(x[0].re, x[0].im);
+						ICT.push(x[1].re, x[1].im);
+						ICT.push(x[2].re, x[2].im);
+					ICC.push(cen0.re, cen0.im, rad0);
+					ICC.push(cen1.re, cen1.im, rad1);
+					ICC.push(cen2.re, cen2.im, rad2);
+					for(i=0; i<3; i++)
+						ICcol.push(col[i]);
+				}
+				//return stuff
+                return {
+					nbr : 		totn,
+					ICCarray : 	ICC,
+					ICTarray : 	ICT,
+					ICcolarray: ICcol,
+				};
+			}
+
+            //------------------------------------------------------------------------------------------------------------------------------
+            //Find upper and lower bounds of the limit set. beginning at last up and dn arrays elements. Use a priority queue.
+			//------------------------------------------------------------------------------------------------------------------------------
+			
+			function getstxinfoUP(st, x){ //initial triple
+				st.re -= Math.floor(st.re);
+				//a = (x[0]/(x[1]*x[2]), x[1]/(x[2]*x[0]), x[2]/(x[0]*x[1]))
+				var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+				//var cen = complex(0,0);
+				var cen0 = add( st, add( a[0], a[1] ) );
+				var rad0 = 1. / abs(x[0]);
+				var cen1 = st;
+				var rad1 = 1. / abs(x[1]);
+				var cen2 = add( st, a[0] );
+				var rad2 = 1. / abs(x[2]);
+				hmax = Math.max(cen0.im, cen1.im, cen2.im);
+				Rmax = rad0; chg = 0;
+				if(hmax === cen1.im) { Rmax = rad1; chg = 1;}
+				if(hmax === cen2.im) { Rmax = rad2; chg = 2;}
+				return {
+					stx : {
+							shift  : st,
+							triple : x,
+							change : chg
+						},
+					h : hmax,
+					r : Rmax
+				}
+			}
+
+			function getstxinfoDN(st, x){ //initial triple
+				st.re -= Math.floor(st.re);
+				//a = (x[0]/(x[1]*x[2]), x[1]/(x[2]*x[0]), x[2]/(x[0]*x[1]))
+				var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+				//var cen = complex(0,0);
+				var cen0 = add( st, add( a[0], a[1] ) );
+				var rad0 = 1. / abs(x[0]);
+				var cen1 = st;
+				var rad1 = 1. / abs(x[1]);
+				var cen2 = add( st, a[0] );
+				var rad2 = 1. / abs(x[2]);
+				hmin = Math.min(cen0.im, cen1.im, cen2.im);
+				Rmin = rad0; chg = 0;
+				if(hmin === cen1.im) { Rmin = rad1; chg = 1;}
+				if(hmin === cen2.im) { Rmin = rad2; chg = 2;}
+				return {
+					stx : {
+							shift  : st,
+							triple : x,
+							change : chg
+						},
+					h : hmin,
+					r : Rmin
+				}
+			}
+			
+			function getstxinfo(stx){ //get height from Markov triple
+				var st = stx.shift; st.re -= Math.floor(st.re);
+				var x  = stx.triple;
+				var ch = stx.change;
+				//a = (x[0]/(x[1]*x[2]), x[1]/(x[2]*x[0]), x[2]/(x[0]*x[1]))
+				var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+				//var cen = complex(0,0);
+				if( ch === 0 )
+					cen = add( st, add( a[0], a[1] ) );
+				else if (ch === 1)
+					cen = st;
+				else
+					cen = add( st, a[0] );
+				var rad = 1 / abs(x[ch]);
+				
+				return {
+					stx: stx,
+					h: cen.im,
+					r : rad
+				}
+			}
+			function Hinterval(MT){
+                //dummy var
+                var col = [0,1,2];
+
+				//Up--------------------------------------
+				//console.log( "up : ");
+				if(MT.up.length > 0 ){
+					var curstx = MT.up[ MT.up.length-1];
+					var sinfo = getstxinfo(curstx);
+				} else { //use seed triple
+					var sinfo = getstxinfoUP(MT.st, MT.x);
+				}
+				var _hmax = sinfo.h;
+
+				//The priority queue.
+				//console.log( "qup : ");
+				const qup = new PriorityQueue((a, b) => (a.h + a.r) > (b.h + b.r));
+				qup.push(sinfo); //1st element to begin with.
+
+                //now the meat.
+				while( !qup.isEmpty() ){
+					var si = qup.pop();
+					if(_hmax > si.h + si.r) break; //Because the condition would be true for all remaining sinfos in the queue
+					_hmax = Math.max(_hmax, si.h);
+					
+					//Not done yet! push children;
+					if( si.r < 1e-8) continue; //Dont push anything if current isometric circle radius is too small
+					var sil = getstxinfo(nextstx(si.stx.shift, si.stx.triple, (si.stx.change + 1) % 3 , col));
+					if( sil.h + sil.r > _hmax) qup.push(sil);
+					var sir = getstxinfo(nextstx(si.stx.shift, si.stx.triple, (si.stx.change + 2) % 3 , col));
+					if( sir.h + sir.r > _hmax) qup.push(sir);
+				}
+				
+				//Down-----------------------------------
+				//console.log( "dn : ");
+				if(MT.dn.length > 0 ){
+					curstx = MT.dn[ MT.dn.length-1];
+					sinfo = getstxinfo(curstx);
+				} else {
+					var sinfo = getstxinfoDN(MT.st, MT.x);
+				}
+				var _hmin = sinfo.h;
+
+				//The priority queue.
+				//console.log( "qdn : ");
+				const qdn = new PriorityQueue((a, b) => (a.h + a.r) < (b.h + b.r));
+				qdn.push(sinfo); //1st element to begin with.
+
+				//now the meat.
+				while( !qdn.isEmpty() ){
+					var si = qdn.pop();
+					if(_hmin < si.h - si.r) break; //Because the condition would be true for all remaining sinfos in the queue
+					_hmin = Math.min(_hmin, si.h);
+					
+					//Not done yet! push children;
+					if( si.r < 1e-8) continue; //Dont push anything if current isometric circle radius is too small
+					var sil = getstxinfo(nextstx(si.stx.shift, si.stx.triple, (si.stx.change + 1) % 3 , col));
+					if( sil.h - sil.r < _hmin) qdn.push(sil);
+					var sir = getstxinfo(nextstx(si.stx.shift, si.stx.triple, (si.stx.change + 2) % 3 , col));
+					if( sir.h - sir.r < _hmin) qdn.push(sir);
+				}
+				console.log( "hmax : " + _hmax + "hmin : " + _hmin);
+				//finish---------------------------------
+				return {
+					hmax : _hmax,
+					hmin : _hmin
+				}
+			}
+		</script>
+		<script id="vertex-shader-2d" type="x-shader/x-vertex" >#version 300 es
+            precision highp float;
+
+			//attribute 
+			in vec2 a_position;
+			out vec2 pos;
+			
+			uniform vec2 centrePos;
+			uniform vec2 zoomFactor;
+
+			void main() {
+				// Multiply the position by the matrix.
+				gl_Position = vec4(a_position.xy, 0, 1); //vec4((u_matrix * vec3(a_position, 1)).xy, 0, 1);
+				pos = centrePos + zoomFactor * gl_Position.xy;
+			}
+		</script>
+		<script id="fragment-shader-2d" type="x-shader/x-fragment" >#version 300 es
+			precision highp float;              // I would've liked more precision.
+
+			#define MAX_IC_NBR 128              // max number of ICs. 128 is maybe too much. When there are a lot of ICs,
+                                                //the limit set becomes very dense, not visually interesting IMHO.
+			uniform int  ICnbr;                 // number of ICs.
+			uniform vec3 ICCarray[MAX_IC_NBR];  // array of isometric circles (ICs): center, radius.
+			uniform vec2 ICTarray[MAX_IC_NBR];  // array of the traces of the Mobius transfos associated with the ICs.
+			uniform int  ICcolarray[MAX_IC_NBR];// just color indices. used in tests. to remove ?
+			
+            uniform int nbrIter;                // iterations number
+
+			in vec2 pos; 
+			out vec4 outColor;
+			
+			float pixsiz; //pixel size in window units. For DE base anti aliasing. The aa is not very good for dense limit sets. set on main()
+            //float coverageLine(float d, float lineWidth, float pixsize){
+            uniform
+                float DRadius;// = .75;
+            uniform
+                float lineWidth;// = 1.5;
+            //uniform float GAMMA; //=2.2
+
+            //colors
+            uniform vec3 upCol;
+            uniform vec3 dnCol;
+            uniform vec3 limCol;
+
+			// Select the isometric circle (IC) that's contains "the most" p.
+            // This is the dumbest I can come with.
+			// To optimize! It becomes slow with moderate number of ICs. Maybe use bounding intervals hierarchy along y axis? not a priority.
+            // If val<0 then we are out of all the ICs.
+            int selectIC(in vec2 p, out float dx, out float v){
+                int index = 0;
+                float deltax = 0.;
+                float maxval = -1e30;
+                for(int i = 0; i < ICnbr; i++){
+                    vec2 d1 = p - ICCarray[i].xy;
+                    float r= ICCarray[i].z;
+                    for( float delta = 0.; delta < 2.; delta++){
+                        vec2 d = d1;
+                        d.x -= delta;
+                        float val = r*r - dot(d,d);
+                        if(val > maxval){
+                            maxval = val;
+                            index  = i;
+                            deltax = delta;
+                        }
+                    }
+                }
+                //if(maxval<0.) return -1;
+                dx = deltax; v = maxval;
+                return index;
+            }
+            //-------------------------------------------------
+            float coverageLine(float d){ 
+                d=d*1./pixsiz;
+                float v1=(d-0.5*lineWidth)/DRadius;
+                return 1.-smoothstep(-1.,1.,v1);
+            }
+            //Complex numbers ops -------------------------------------------------
+            vec2 Cmul(vec2 a, vec2 b){
+                return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x);
+            }
+            vec2 Csqr(vec2 a){
+                return vec2(a.x*a.x - a.y*a.y, 2. * a.x*a.y);
+            }
+            vec2 Cconj(vec2 a){
+                return vec2(a.x, -a.y);
+            }
+            float CnormS(vec2 a){
+                return dot(a,a);
+            }
+            float Cnorm(vec2 a){
+                return length(a);
+            }
+            vec2 Cinv(vec2 a){
+                return Cconj(a)/CnormS(a);
+            }
+            vec2 Cdiv(vec2 a, vec2 b){
+                return vec2(a.x*b.x + a.y*b.y, -a.x*b.y + a.y*b.x) / CnormS(b);
+            }
+
+            //Mobius transformations ops-------------------------------------------------
+
+            struct TypMTr{
+                vec2 a, b, c, d;
+            };
+
+            //Construct the Mobius transformation corresponding to trace x and shift a
+            TypMTr consMTr(vec2 x, vec2 a){
+                TypMTr MTr;
+                vec2 a2 = Csqr(a);
+                vec2 ax = Cmul(a,x);
+                MTr.a = -ax;
+                MTr.b = Cmul(a2,x) + Cinv(x);
+                MTr.c = -x;
+                MTr.d = ax;
+                return MTr;
+            }
+
+            //Identity
+            TypMTr idMTr(){
+                TypMTr MTr;
+                MTr.a = vec2(1,0);
+                MTr.b = vec2(0,0);
+                MTr.c = vec2(0,0);
+                MTr.d = vec2(1,0);
+                return MTr;
+            }
+
+            //Multiplication/composition
+            TypMTr MTmul(TypMTr M, TypMTr N){
+                TypMTr R;
+                R.a = Cmul(M.a, N.a) + Cmul(M.b, N.c); R.b = Cmul(M.a, N.b) + Cmul(M.b, N.d);
+                R.c = Cmul(M.c, N.a) + Cmul(M.d, N.c); R.d = Cmul(M.c, N.b) + Cmul(M.d, N.d);
+                return R;
+            }
+
+			//inverse
+			TypMTr MTinv(TypMTr M){
+                TypMTr R;
+				//vec2 idet = Cinv(Cmul(M.a, M.d) - Cmul(M.c, M.b)); //Should be (1,0) in our case
+                R.a = M.d ; R.b = -M.b;
+                R.c = -M.c; R.d = M.a;
+                return R;
+            }
+
+            //translate N by t in x direction
+            TypMTr MTtranslate(float t, TypMTr N){
+                TypMTr R;
+                R.a = N.a + t * N.c; R.b = N.b + t * N.d;
+                R.c = N.c;           R.d = N.d;
+                return R;
+            }
+			//-----------------------------------------------------------------------------
+            //Transform point p with MTr
+            vec4 TrPt(TypMTr MTr, vec4 p){
+                vec2 z = p.xy, w = p.zw;
+                return vec4( Cmul(MTr.a, z) + Cmul(MTr.b, w),
+                             Cmul(MTr.c, z) + Cmul(MTr.d, w));
+            }
+
+            //translate point p by t in x direction
+            vec4 TranslatePt(float t, vec4 p){
+                vec2 z = p.xy    , w = p.zw;
+                return vec4( z + t * w,
+                             w);
+            }
+			
+			//-----------------------------------------------------------------------------
+
+            vec4 iterate(in vec2 pos){
+                pos.x -= floor(pos.x);//
+                vec4 col = vec4(1);
+                float dx, val;
+                int index = -1, prevIndex = -1;
+                vec4 p = vec4(pos,vec2(1,0)); // That makes a vector of two complex numbers. 
+                for(int i=0; i<nbrIter; i++){ 
+                    prevIndex = index;
+                    index = selectIC(pos, dx, val);
+                    col.rgb *= 0.9; //= fadeCol(col,index);//[index]*=0.7;
+                    if(val<0.)
+                        break;
+                    //construct the index'th Mobius transformation
+                    TypMTr MTr = consMTr(ICTarray[index], ICCarray[index].xy + vec2(dx,0.));
+                    //transform p by Mobius transformation at index
+                    p = TrPt(MTr, p);
+                    //new pos
+                    pos = Cmul(p.xy, Cinv(p.zw)); // Cdiv(p.xy,p.zw); //
+                    //translate to re in [0,1]
+                    float translation = -floor(pos.x);
+                    pos.x += translation;
+                    //translate p
+                    p = vec4(pos,vec2(1,0)); //TranslatePt(translation, p); //
+                }
+                if(prevIndex < 0)
+                    return vec4(1);
+                return col;//Idx2col(prevIndex);
+            }
+
+            vec4 limitSet(in vec2 pos){
+                //float pixsize=dFdx(pos.x);
+                pos.x -= floor(pos.x);//
+				float dx, val;
+                int index = -1, prevIndex = -1;
+                vec4 p = vec4(pos,vec2(1,0)); // That makes a vector of two complex numbers. 
+                float iDer =1.;
+                for(int i=0; i< /*10*/ nbrIter; i++){ 
+                    prevIndex = index;
+                    index = selectIC(pos, dx, val);
+                    if(val<0.)
+                        break;
+                    //construct the index'th Mobius transformation
+                    TypMTr MTr = consMTr(ICTarray[index], ICCarray[index].xy + vec2(dx,0.));
+                    //transform p by Mobius transformation at index
+                    iDer *= CnormS(Cmul(MTr.c, pos) + MTr.d);
+                    p = TrPt(MTr, p);
+                    //new pos
+                    pos = Cmul(p.xy, Cinv(p.zw)); // Cdiv(p.xy,p.zw); //
+                    //translate to re in [0,1]
+                    float translation = -floor(pos.x);
+                    pos.x += translation;
+                    //new p
+                    p = vec4(pos,vec2(1,0)); 
+                }
+                			
+				//Here the number of iterations is insufficient.
+				if(val>0.) return vec4(0,0,0,1);//"non resolved" color
+				
+				float h = pos.y;
+                float DE= h * iDer; //divide by derivative
+                vec3 bCol = upCol;//vec3(1.,0.75,0.75);
+                if(h<0.) bCol = dnCol;//vec3(0.65,.9,0.8);
+                float v = coverageLine(abs(DE));
+			#define GAMMA 2.2
+				return vec4( pow(mix(pow(bCol,vec3(GAMMA)),pow(limCol,vec3(GAMMA)),v),vec3(1./GAMMA)), 1.);
+            }
+
+            void main() {
+				pixsiz = dFdx(pos.x);
+				
+                //outColor = iterate(pos);
+				outColor = limitSet(pos);
+			}
+		</script>
+		<script>
+			//------------------------------------------------------------------------------------------------------------------------------
+			//Drawing utility functions
+			//------------------------------------------------------------------------------------------------------------------------------
+			//Canvas window drawing
+			function canwin(context2d, contextGl){
+				var wctx = {
+					ctx : context2d,
+                    glctx: contextGl
+				}
+				wctx.pos = { x:0, y:0 }
+				wctx.zf  = 1;
+                upCol = [1,1,1];
+                dnCol = [1,1,1];
+                limCol= [0,0,0];
+                DRadius= 0.75;
+                lineWidth= 1.5;
+				//Set window position and size.
+				// x,y        : position in canvas space of the origin in window space (in pixel units)
+				// zoomFactor : size in canvas space (in pixel units) of one unit in window space. 
+				wctx.setWindow = function (x, y, zoomFactor){
+					this.pos.x = x;
+					this.pos.y = y;
+					this.zf  = zoomFactor;
+				}
+				//Convert x coordinate from window space to canvas space
+				wctx.w2cx = function(x){
+					return this.pos.x + x * this.zf;
+				}
+				//Convert y coordinate from window space to canvas space
+				wctx.w2cy = function(y){
+					return this.pos.y - y * this.zf;
+				}
+				//Convert x coordinate from canvas space to window space
+				wctx.c2wx = function(x){
+					return ( x - this.pos.x ) / this.zf;
+				}
+				//Convert y coordinate from canvas space to window space
+				wctx.c2wy = function(y){
+					return ( this.pos.y - y ) / this.zf;
+				}
+				
+				//Clear screen
+				wctx.cls = function(){
+					this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+				}
+				
+				//moveTo and lineto in window space. One must call stroke() in order to finish things. (or fill())
+				wctx.moveTo = function (x,y){
+					this.ctx.moveTo(this.w2cx(x),this.w2cy(y));
+				}
+				wctx.lineTo = function (x,y){
+					this.ctx.lineTo(this.w2cx(x),this.w2cy(y));
+				}
+				wctx.stroke = function (){
+					this.ctx.stroke();
+				}
+				
+				//draw a circle.
+				wctx.circle = function (x,y,r){
+					x = this.w2cx(x); y = this.w2cy(y); r = r * this.zf;
+					this.ctx.beginPath();this.ctx.arc(x,y,r,0,2*Math.PI); this.ctx.stroke(); this.ctx.closePath();
+				}
+				
+				//Draw initial isometric circles
+                const Ccolors=["red", "green", "blue"];
+
+				wctx.drawInitialIC = function(st, x, col){
+					st.re -= Math.floor(st.re);
+					//a = (x[0]/(x[1]*x[2]), x[1]/(x[2]*x[0]), x[2]/(x[0]*x[1]))
+					var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+					//var cen = complex(0,0);
+					var cen0 = add( st, add( a[0], a[1] ) );
+					var rad0 = 1. / abs(x[0]);
+					var cen1 = st;
+					var rad1 = 1. / abs(x[1]);
+					var cen2 = add( st, a[0] );
+					var rad2 = 1. / abs(x[2]);
+					
+					for( i = -5; i<=5; i++){
+						cx.strokeStyle = Ccolors[col[0]]; this.circle(cen0.re+i, cen0.im, rad0);
+						cx.strokeStyle = Ccolors[col[1]];this.circle(cen1.re+i, cen1.im, rad1);
+						cx.strokeStyle = Ccolors[col[2]];this.circle(cen2.re+i, cen2.im, rad2);
+					}
+				}
+				//Draw isometric circle
+				wctx.drawIC = function(stx){
+					var st = stx.shift; st.re -= Math.floor(st.re);
+					var x  = stx.triple;
+					var ch = stx.change;
+					//a = (x[0]/(x[1]*x[2]), x[1]/(x[2]*x[0]), x[2]/(x[0]*x[1]))
+					var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+					//var cen = complex(0,0);
+					if( ch === 0 )
+						cen = add( st, add( a[0], a[1] ) );
+					else if (ch === 1)
+						cen = st;
+					else
+						cen = add( st, a[0] );
+
+					var rad = 1 / abs(x[ch]);
+					cx.strokeStyle = Ccolors[stx.col[ch]];
+					for( i = -5; i<=5; i++){
+						this.circle(cen.re+i, cen.im, rad);
+					}
+				}
+				//draw lines
+				wctx.drawLine = function(st,x){
+					st.re -= Math.floor(st.re);
+					//a = (x[0]/(x[1]*x[2]), x[1]/(x[2]*x[0]), x[2]/(x[0]*x[1]))
+					var a = [ div(x[0], mul(x[1], x[2])), div(x[1], mul(x[2], x[0])), div(x[2], mul(x[0], x[1])) ];
+					this.moveTo(st.re -5, st.im);
+					for( i = -5; i<=5; i++){
+						this.lineTo(st.re + i, st.im);
+						this.lineTo(st.re + a[0].re + i, st.im + a[0].im);
+						this.lineTo(st.re + a[0].re + a[1].re + i, st.im + a[0].im + a[1].im);
+					}
+					//this.stroke();
+				}
+				
+				//Adapted from WebGL2Fundamentals.org  
+                wctx.setupGL = function(){
+                    function createShader(gl, type, source) {
+                        var shader = gl.createShader(type);
+                        gl.shaderSource(shader, source);
+                        gl.compileShader(shader);
+                        var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+                        if (success) {
+                            return shader;
+                        }
+
+                        console.log(gl.getShaderInfoLog(shader));
+                        gl.deleteShader(shader);
+                    }
+
+                    function createProgram(gl, vertexShader, fragmentShader) {
+                        var program = gl.createProgram();
+                        gl.attachShader(program, vertexShader);
+                        gl.attachShader(program, fragmentShader);
+                        gl.linkProgram(program);
+                        var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+                        if (success) {
+                            return program;
+                        }
+
+                        console.log(gl.getProgramInfoLog(program));
+                        gl.deleteProgram(program);
+                    }
+
+                    {
+                        var vshaderSrc = document.getElementById("vertex-shader-2d").text;
+                        var fshaderSrc = document.getElementById("fragment-shader-2d").text;
+                        var vshader    = createShader(this.glctx, this.glctx.VERTEX_SHADER, vshaderSrc);
+                        var fshader    = createShader(this.glctx, this.glctx.FRAGMENT_SHADER, fshaderSrc);
+                        this.prgshader  = createProgram(this.glctx, vshader, fshader);
+                        this.glctx.useProgram(this.prgshader);
+						console.log("wctx.setupGL()");
+                    }
+                }
+
+				wctx.drawQuad = function(ICarrays){
+					console.log("wctx.drawQuad()");
+					var posAttribLoc = this.glctx.getAttribLocation(this.prgshader, "a_position");
+					var posBuf = this.glctx.createBuffer();
+					this.glctx.bindBuffer(this.glctx.ARRAY_BUFFER, posBuf);
+					var positions = [
+									-1, -1,
+									-1,  1,
+									 1, -1,
+									 1,  1,
+									];
+					
+					this.glctx.bufferData(this.glctx.ARRAY_BUFFER, new Float32Array(positions), this.glctx.STATIC_DRAW);
+					var vao = this.glctx.createVertexArray();
+					this.glctx.bindVertexArray(vao);
+					this.glctx.enableVertexAttribArray(posAttribLoc);
+					var size = 2;          			// 2 components per iteration
+					var type = this.glctx.FLOAT;   	// the data is 32bit floats
+					var normalize = false; 			// don't normalize the data
+					var stride = 0;        			// 0 = move forward size * sizeof(type) each iteration to get the next position
+					var offset = 0;        			// start at the beginning of the buffer
+					this.glctx.vertexAttribPointer(posAttribLoc, size, type, normalize, stride, offset);
+
+					//uniforms
+					//Number of iterations.  nbrIter
+					var nbrIterLoc = this.glctx.getUniformLocation(this.prgshader, "nbrIter");
+					this.glctx.uniform1i(nbrIterLoc, 20);//<------------------------------------------------------------------------------------
+                    //For window pan and scale
+                    var centrePosLoc = this.glctx.getUniformLocation(this.prgshader, "centrePos");
+                    var zoomFactorLoc = this.glctx.getUniformLocation(this.prgshader, "zoomFactor");
+                    var cex = this.c2wx(this.ctx.canvas.width * 0.5), cey = this.c2wy(this.ctx.canvas.height * 0.5);
+                    var zfx = this.c2wx(this.ctx.canvas.width) - cex, zfy = cey - this.c2wy(this.ctx.canvas.height);
+                    this.glctx.uniform2f(centrePosLoc, cex, cey);
+                    this.glctx.uniform2f(zoomFactorLoc, zfx, zfy);
+                    //For isometric circles
+					if(ICarrays && ICarrays.nbr<=128){
+						var ICCarrayLoc = this.glctx.getUniformLocation(this.prgshader, "ICCarray");
+						var ICTarrayLoc = this.glctx.getUniformLocation(this.prgshader, "ICTarray");
+						var ICcolarrayLoc = this.glctx.getUniformLocation(this.prgshader, "ICcolarray");
+						var ICnbrLoc = this.glctx.getUniformLocation(this.prgshader, "ICnbr");
+						this.glctx.uniform3fv(ICCarrayLoc, ICarrays.ICCarray);
+						this.glctx.uniform2fv(ICTarrayLoc, ICarrays.ICTarray);
+						this.glctx.uniform1iv(ICcolarrayLoc, ICarrays.ICcolarray);
+						this.glctx.uniform1i(ICnbrLoc, ICarrays.nbr);
+					} else {
+						var ICnbrLoc = this.glctx.getUniformLocation(this.prgshader, "ICnbr");
+						this.glctx.uniform1i(ICnbrLoc, 0);
+					}
+
+                    {
+                        var DRadiusLoc = this.glctx.getUniformLocation(this.prgshader, "DRadius");
+                        this.glctx.uniform1f(DRadiusLoc, DRadius);//<------------------------------------------------------------------------------------
+                        var lineWidthLoc = this.glctx.getUniformLocation(this.prgshader, "lineWidth");
+                        this.glctx.uniform1f(lineWidthLoc, lineWidth);//<------------------------------------------------------------------------------------
+
+                        var upColLoc = this.glctx.getUniformLocation(this.prgshader, "upCol");
+                        this.glctx.uniform3fv(upColLoc, upCol);//<------------------------------------------------------------------------------------
+                        var dnColLoc = this.glctx.getUniformLocation(this.prgshader, "dnCol");
+                        this.glctx.uniform3fv(dnColLoc, dnCol);//<------------------------------------------------------------------------------------
+                        var limColLoc = this.glctx.getUniformLocation(this.prgshader, "limCol");
+                        this.glctx.uniform3fv(limColLoc, limCol);//<------------------------------------------------------------------------------------
+                    }
+                    
+                    //Drawing part
+                    this.glctx.viewport(0, 0, this.glctx.canvas.width, this.glctx.canvas.height);
+					// Clear the canvas
+					this.glctx.clearColor(0, 0, 0, 0);
+					this.glctx.clear(this.glctx.COLOR_BUFFER_BIT);
+					// Tell it to use our program (pair of shaders)
+					//this.glctx.useProgram(this.prgshader); //already set
+					// Bind the attribute/buffer set we want.
+					//this.glctx.bindVertexArray(vao); //already set
+					//
+					var primitiveType = this.glctx.TRIANGLE_STRIP; //TRIANGLES;//
+					var offset = 0;
+					var count = 4;
+					this.glctx.drawArrays(primitiveType, offset, count);
+				}
+                
+				return wctx;
+			}
+			//---------------------------------------------------------------
+		</script>
+	</head>
+	<body onresize = "ResizeFn()">
+		<!-- 
+			<a>hello world!</a>
+		-->
+		<canvas id="theCanvas" width=512 height=512></canvas>
+        <canvas id="GlCanvas" width=512 height=512></canvas>
+		<div id="buttonOverlay">
+			<button id="home">HOME</button>
+			<button id="pan">PAN</button>
+			<button id="zoom">ZOOM</button>
+			<button id="reset">RESET</button>
+			<button id="pra">PRA</button>
+			<button id="prb">PRB</button>
+            <div>
+                <input type="range" min="0." max="1." step="0.01" value="0.5" class="slider" id="DEfilter">
+                <input type="range" min="0." max="3." step="0.01" value="1.5" class="slider" id="limWidth">
+            </div>
+            <div>
+                <label for="upColor">up color:  </label>
+                <input type="color" id="upColor" value="#ffffff">
+            </div>
+            <div>
+                <label for="dnColor">down color:    </label>
+                <input type="color" id="dnColor" value="#ffffff">
+            </div>
+            <div>
+                <label for="limColor">line color:   </label>
+                <input type="color" id="limColor" value="#000000">
+			</div>
+			<p id="discrete">Hello</p>
+			<p>World!</p>
+		</div>
+        <div id="infoOverlay">
+            <p id="textInfo">hello world</p>
+        </div>
+		<!-- <div style="font-size:50px; background-color: yellow; position:absolute; top: 100; left: 100;" > 
+			<p> hello </p>
+		</div> -->
+		<!--<div id="theCanvas" width=512 height=512></div>-->
+		<!--
+		<script src="../js/three.js"></script>
+		
+		<script src="../js/math.min.js"></script>
+		<script src="../js/complex.min.js"></script>
+		-->
+		<script>
+            var ProbA = myComplex(0.21,0.46), ProbB = myComplex(0.50001,0.00001);//First and second "complex probability". The third one is imlicit. ProbC= 1 - ProbA - ProbB.
+			//var ProbA = myComplex(-0.005679564401406875, -0.006836730800966469); var ProbB = myComplex(0.6638822339072191, 0.002040625311476887);
+			
+
+            var MTs;// = getMTs( ProbA, ProbB );//Obtain information about the Kleinian group corresponding to the input "complex probabilities"
+            var MTinterval;// = Hinterval(MTs); //Estimate highest and lowest bounds of the -initial- limit set
+			var ICarrays = undefined;
+
+            UpdateMTs();
+
+            //Initialize the canvas
+            var can = document.getElementById("theCanvas");
+			can.width = window.innerWidth;//-5;
+			can.height= window.innerHeight;//-5;
+			can.style.cursor = "move";
+			var cx = can.getContext("2d");
+
+            var glCan = document.getElementById("GlCanvas");
+			glCan.width = window.innerWidth;//-5;
+			glCan.height= window.innerHeight;//-5;
+			var glCx = glCan.getContext("webgl2");
+			
+			var wcx = canwin(cx, glCx);
+			wcx.setWindow(can.width*0.5,can.height*0.5,300);
+            wcx.setupGL();
+
+            //Infos are displayed in the tab named "buttonOverlay"
+            var buttonOverlay = document.getElementById("buttonOverlay");
+            buttonOverlay.style.display = "block";
+            var infoOverlay = document.getElementById("infoOverlay");
+            infoOverlay.style.display = "block";
+            function ShowOverlay(){
+                buttonOverlay.style.display = "block";
+                infoOverlay.style.display = "block";
+            }
+            function HideOverlay(){
+                buttonOverlay.style.display = "none";
+                infoOverlay.style.display = "none";
+            }
+			function ShowButtonOverlay(){
+                buttonOverlay.style.display = "block";
+            }
+            function HideButtonOverlay(){
+                buttonOverlay.style.display = "none";
+            }
+
+			//modes-----------------------------------------------------------------------------------------------------------
+			const modes = ["home","pan","zoom","reset","pra","prb"];
+
+			//Current mode
+			var currentMode = 1; // 1 for "pan"
+            document.getElementById(modes[currentMode]).style["background-color"]="rgb(255,200,200)";
+
+			//Buttons
+            function setButtonEvnt(){
+                for(i=0; i<modes.length; i++){
+                    document.getElementById(modes[i]).addEventListener("click", buttonClickFn);
+                }
+            }
+            function removeButtonEvnt(){
+                for(i=0; i<modes.length; i++){
+                    document.getElementById(modes[i]).addEventListener("click", buttonClickFn);
+                }
+            }
+            setButtonEvnt();
+			//const buttonHome = document.getElementById("theCanvas");
+			function buttonClickFn(e){
+                function resetBtnCol(){
+                    for(i=0; i<modes.length; i++){
+                        document.getElementById(modes[i]).style["background-color"]="rgb(255,255,255)";
+                    }
+                }
+                function home(){
+                    wcx.setWindow(can.width*0.5,can.height*0.5,300);
+                    requestAnimationFrame(UpdateCanvas);
+                    console.log("home");
+                }
+                function reset(){
+                    ProbA = myComplex(0.21,0.46);
+                    ProbB = myComplex(0.500001,0.000001);
+                    UpdateMTs();
+                    home();
+                    console.log("reset");
+                }
+                if(e.target.id === "home")
+                    home();
+                else if(e.target.id === "reset")
+                    reset();
+                else {
+                    resetBtnCol();
+                    currentMode = 1;
+                    for(i=0; i<modes.length; i++)
+                        if(e.target.id === modes[i])
+                            currentMode = i;
+                    document.getElementById(modes[currentMode]).style["background-color"]="rgb(255,200,200)";
+				    console.log("button : ", modes[currentMode]);
+					//Set the relevant cursor
+					if(modes[currentMode] === "pan")
+						can.style.cursor = "move";
+					else if(modes[currentMode] === "zoom")
+						can.style.cursor = "zoom-in";
+					else if(modes[currentMode] === "pra" || modes[currentMode] === "prb")
+						can.style.cursor = "crosshair";
+					else
+						can.style.cursor = "auto";
+                }
+			}
+
+            //mouse interaction-----------------------------------------------------------------------
+            var mouseCPosX, mouseCPosY;
+            var mouseDeltaX, mouseDeltaY;
+            var wcxSave, wcySave, wcZfSave;
+            var mouseCaptured = false;
+            var textInfo = document.getElementById("textInfo");
+			var timerId;
+			
+				//Pan functions
+				function beginPan(){
+                    wcxSave = wcx.pos.x;
+                    wcySave = wcx.pos.y;
+				}
+				function doPan(){
+                    wcx.setWindow(wcxSave+mouseDeltaX, wcySave-mouseDeltaY, wcx.zf);
+                    requestAnimationFrame(UpdateCanvas);
+				}
+				function endPan(){
+					//nothing. I should add cursor changing.
+				}
+				//zoom functions
+                function beginZoom(){
+                    wcxSave = wcx.pos.x;
+                    wcySave = wcx.pos.y;
+                    wcZfSave = wcx.zf;
+				}
+				function doZoom(){
+                    const alpha = Math.pow(2, mouseDeltaY * 0.01);
+                    const px = mouseCPosX * (1-alpha) + alpha * wcxSave;
+                    const py = mouseCPosY * (1-alpha) + alpha * wcySave;
+                    wcx.setWindow(px, py, alpha * wcZfSave);
+                    requestAnimationFrame(UpdateCanvas);
+				}
+				function endZoom(){
+					//nothing. I should add cursor changing.
+				}
+				//Complex probabilities functions
+				function beginCP(){
+					//nothing
+				}
+				function doCP(){
+					var l = Math.hypot(mouseDeltaX*0.00005, mouseDeltaY*0.00005);
+					var dre = mouseDeltaX * Math.pow(l,3);
+					var dim = mouseDeltaY * Math.pow(l,3);
+					if(modes[currentMode]==="pra"){
+						ProbA.re += dre;
+						ProbA.im += dim;
+					} else if(modes[currentMode]==="prb"){
+						ProbB.re += dre;
+						ProbB.im += dim;
+					}
+					UpdateMTs();
+				}
+				function endCP(){
+					//nothing
+				}
+				//-------------------------------
+            function mouseDown(e){
+                mouseCaptured = true;
+                mouseCPosX = e.clientX;
+                mouseCPosY = e.clientY;
+                mouseDeltaX = 0;
+                mouseDeltaY = 0;
+                HideButtonOverlay();//can.style.zIndex = 100;
+                can.addEventListener("pointermove",mouseMove);
+                can.setPointerCapture(e.pointerId);
+                textInfo.textContent = mouseDeltaX + " , " + mouseDeltaY;
+				if(modes[currentMode]==="pra" || modes[currentMode]==="prb")
+					timerId = setInterval(doCP, 20);
+                else if(modes[currentMode]==="pan")
+                    beginPan();
+                else if(modes[currentMode]==="zoom")
+                    beginZoom();
+                e.stopPropagation();
+            }
+            function mouseMove(e){
+                mouseDeltaX = e.clientX - mouseCPosX;
+                mouseDeltaY = - (e.clientY - mouseCPosY);
+                textInfo.textContent = mouseDeltaX + " , " + mouseDeltaY;
+                if(modes[currentMode]==="pan")
+                    doPan();
+                else if(modes[currentMode]==="zoom")
+                    doZoom();
+				//doCP();
+                e.stopPropagation();
+            }
+            function mouseUp(e){
+                mouseCaptured = false;
+				clearInterval(timerId);
+                can.removeEventListener("pointermove",mouseMove);
+                can.releasePointerCapture(e.pointerId);
+                ShowButtonOverlay();//can.style.zIndex = 0;
+                textInfo.textContent = "-";
+                if(modes[currentMode]==="pan")
+                    endPan();
+                else if(modes[currentMode]==="zoom")
+                    endZoom();
+				requestAnimationFrame(UpdateCanvas);
+                e.stopPropagation();
+            }
+            can.addEventListener("pointerdown", mouseDown);
+            can.addEventListener("pointerup", mouseUp);
+            
+            //Draw the canvas wrt current MTs
+            function UpdateCanvas(){
+                //const Tcolors=["red","green","magenta","blue"];
+				cx.clearRect(0,0,can.width,can.height);
+                if(MTs.x != undefined){
+                    cx.lineWidth=1.;
+                    cx.strokeStyle = "#ff0000";
+                    wcx.drawInitialIC(MTs.st, MTs.x, MTs.col);
+                
+                    cx.strokeStyle = "#000000";
+                    if(MTs.up != undefined) for(j=0; j < MTs.up.length; j++)
+                        wcx.drawIC(MTs.up[j]);
+                    if(MTs.dn != undefined) for(j=0; j < MTs.dn.length; j++)
+                        wcx.drawIC(MTs.dn[j]);
+                    
+                    cx.lineWidth=2.;
+                    cx.strokeStyle = "#000000";
+                    cx.beginPath();
+                    wcx.drawLine(MTs.st, MTs.x);
+                    cx.stroke();
+                    cx.closePath();
+                
+                    if(MTs.up != undefined) for(j=0; j < MTs.up.length; j++){
+                        cx.beginPath();
+                        cx.lineWidth=0.5 + (j%2) *0.75;
+                        //cx.strokeStyle = Tcolors[j % 4];
+                        wcx.drawLine(MTs.up[j].shift, MTs.up[j].triple);
+                        cx.stroke();
+                        cx.closePath();
+                    }
+                    if(MTs.dn != undefined) for(j=0; j < MTs.dn.length; j++){
+                        cx.beginPath();
+                        cx.lineWidth=0.5 + (j%2) *0.75;
+                        //cx.strokeStyle = Tcolors[j % 4];
+                        wcx.drawLine(MTs.dn[j].shift, MTs.dn[j].triple);
+                        cx.stroke();
+                        cx.closePath();
+                    }
+                }
+				if(MTinterval != undefined){
+					cx.lineWidth=2.;
+					cx.strokeStyle = "#000000";
+					cx.beginPath(); wcx.moveTo(-5,MTinterval.hmax); wcx.lineTo(5, MTinterval.hmax); cx.stroke(); cx.closePath();
+					cx.beginPath(); wcx.moveTo(-5,MTinterval.hmin); wcx.lineTo(5, MTinterval.hmin); cx.stroke(); cx.closePath();
+				}
+				if(mouseCaptured && modes[currentMode]!="pan" && modes[currentMode]!="zoom")
+				{
+					cx.lineWidth=2.;
+                    cx.strokeStyle = "#FF0000";
+					cx.beginPath(); 
+					cx.arc(mouseCPosX, mouseCPosY, Math.hypot(mouseDeltaX, mouseDeltaY),0,2*Math.PI);
+					cx.stroke(); cx.closePath();
+					//cx.circle(mouseCPosX, mouseCPosX, Math.hypot(mouseDeltaX, mouseDeltaY));
+					//cx.circle(100, 100, 50);
+				}
+
+				wcx.drawQuad(ICarrays);
+            }
+
+            //When ProbA or ProbB change call this to update the MTs
+            function UpdateMTs(){
+                MTs = undefined;
+				MTs = getMTs( ProbA, ProbB );
+                //output results.
+                if(!MTs.dis){
+                    console.log( "The group is indiscrete" );
+                    document.getElementById("discrete").textContent = "indiscrete";
+					MTinterval = undefined;
+                    ICarrays = undefined;
+                }else{
+                    console.log( "The group is discrete" );
+                    console.log( "up : " + MTs.up.length);
+                    console.log( "dn : " + MTs.dn.length);
+                    document.getElementById("discrete").textContent = "discrete";
+					MTinterval = Hinterval(MTs);
+                    ICarrays = getICs(MTs, MTinterval);
+					console.log(MTs.x[0].re + ", "+MTs.x[0].im+", "+MTs.x[1].re+", "+MTs.x[1].im);
+                }
+                //console.log(MTs.x[0].re + ", "+MTs.x[0].im+", "+MTs.x[1].re+", "+MTs.x[1].im);
+                //MTinterval = Hinterval(MTs);
+                requestAnimationFrame(UpdateCanvas);
+            }
+
+            function ResizeFn(){
+                can.width = window.innerWidth;
+			    can.height= window.innerHeight;
+				glCan.width = window.innerWidth;
+			    glCan.height= window.innerHeight;
+                UpdateCanvas();
+            }
+
+            var overlayVis=true;
+            function HideUI(){
+                if(overlayVis)
+                    HideOverlay();
+                else
+                    ShowOverlay();
+                overlayVis = !overlayVis;
+            }
+
+            document.body.addEventListener("keydown", (e) => {
+                if (!e.repeat)
+                    if (e.key === "h") HideUI();
+            });
+            
+            //-------------------------------------------------------------------------------------------
+            UpdateMTs();
+            
+		</script>
+	</body>
+</html>
